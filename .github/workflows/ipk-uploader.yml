@@ -66,8 +66,8 @@ jobs:
           sudo mount -t overlay overlay -o lowerdir=/mnt/openwrt-ro,upperdir=overlay,workdir=workdir openwrt
           cd openwrt
           echo "OPENWRTROOT=$PWD" >> $GITHUB_ENV
-          echo "::set-output name=OPENWRTROOT::$(echo $PWD)"
-          git pull                                  
+          echo "OPENWRTROOT=$PWD" >> $GITHUB_OUTPUT
+          git pull
 
       - name: Update Feeds
         id: update
@@ -120,18 +120,18 @@ jobs:
           cd $OPENWRTROOT/bin/packages/*
           PLATFORM=$(basename `pwd`)
           echo "PLATFORM=$PLATFORM" >> $GITHUB_ENV
-          echo "::set-output name=PLATFORM::$(echo $PLATFORM)"
+          echo "PLATFORM=$PLATFORM" >> $GITHUB_OUTPUT
           cd $OPENWRTROOT/bin/targets/*
           TARGET=$(basename `pwd`)
           echo "TARGET=$TARGET" >> $GITHUB_ENV
-          echo "::set-output name=TARGET::$(echo $TARGET)"
+          echo "TARGET=$TARGET" >> $GITHUB_OUTPUT
           cd *
           SUBTARGET=$(basename `pwd`)
           echo "SUBTARGET=$SUBTARGET" >> $GITHUB_ENV
-          echo "::set-output name=SUBTARGET::$(echo $SUBTARGET)"
+          echo "SUBTARGET=$SUBTARGET" >> $GITHUB_OUTPUT
           echo "FIRMWARE=$PWD" >> $GITHUB_ENV
-          echo "::set-output name=FIRMWARE::$(echo $PWD)"
-          echo "::set-output name=COMPILE_STATUS::success"
+          echo "FIRMWARE=$PWD" >> $GITHUB_OUTPUT
+          echo "COMPILE_STATUS=success" >> $GITHUB_OUTPUT
 
       - name: Generate Firmware
         if: steps.compile.outputs.COMPILE_STATUS == 'success'
@@ -162,7 +162,7 @@ jobs:
           grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
           [ -s DEVICE_NAME ] && echo "DEVICE_NAME=$(cat DEVICE_NAME)" >> $GITHUB_ENV
           echo "FILE_DATE=$(date +"%Y.%m.%d")" >> $GITHUB_ENV
-          echo "::set-output name=GENERATE_STATUS::success"
+          echo "GENERATE_STATUS=success" >> $GITHUB_OUTPUT
 
       - name: Upload Bin Folder
         uses: actions/upload-artifact@main
@@ -181,30 +181,30 @@ jobs:
           cp -rf $(find openwrt/bin/packages/ -type f -name "*all.ipk") ipk/
           rm -rf packages
           echo "FIRMWARE=$PWD" >> $GITHUB_ENV
-          echo "::set-output name=status::success"
-          echo "::set-output name=ORGANIZE_STATUS::success"
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "ORGANIZE_STATUS=success" >> $GITHUB_OUTPUT
 
       - name: Pushes IPK to helmiwrt-opkg repo
         uses: dmnemec/copy_file_to_another_repo_action@main
         env:
           API_TOKEN_GITHUB: ${{ secrets.API_TOKEN_GITHUB }}
         with:
-          source_file: 'test2.md'
-          destination_repo: 'helmiau/helmiwrt-opkg'
-          destination_folder: 'ipk'
-          user_email: 'helmilaw@gmail.com'
-          user_name: 'helmiau'
-          commit_message: 'Uploa'
+          source_file: "test2.md"
+          destination_repo: "helmiau/helmiwrt-opkg"
+          destination_folder: "ipk"
+          user_email: "helmilaw@gmail.com"
+          user_name: "helmiau"
+          commit_message: "Uploa"
 
       - name: Cleaning Up
-        id: organize
+        id: cleanup
         if: env.UPLOAD_FIRMWARE == 'true' && steps.generate.outputs.GENERATE_STATUS == 'success' && !cancelled()
         run: |
           cd openwrt/bin/targets/*/*
           rm -rf packages
           echo "FIRMWARE=$PWD" >> $GITHUB_ENV
-          echo "::set-output name=status::success"
-          echo "::set-output name=ORGANIZE_STATUS::success"
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "ORGANIZE_STATUS=success" >> $GITHUB_OUTPUT
 
       - name: Delete Workflow Runs
         uses: GitRML/delete-workflow-runs@main
