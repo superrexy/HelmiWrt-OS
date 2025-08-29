@@ -58,7 +58,7 @@ git clone --depth=1 -b 18.06 https://github.com/jerrykuku/luci-theme-argon
 git clone --depth=1 https://github.com/jerrykuku/luci-app-argon-config
 
 #-----------------------------------------------------------------------------
-#   Start of @helmiau additionals packages for cloning repo 
+#   Start of @helmiau additionals packages for cloning repo
 #-----------------------------------------------------------------------------
 
 # Add modeminfo
@@ -117,7 +117,7 @@ svn co https://github.com/helmiau/helmiwrt-adds/trunk/luci/luci-app-telegrambot 
 git clone --depth=1 https://github.com/WROIATE/luci-app-mqos
 
 #-----------------------------------------------------------------------------
-#   End of @helmiau additionals packages for cloning repo 
+#   End of @helmiau additionals packages for cloning repo
 #-----------------------------------------------------------------------------
 
 # Add luci-app-oled (R2S Only)
@@ -188,7 +188,7 @@ if [[ "$WORKFLOWNAME" == *"x86"* ]] ; then
 	#wget -q https://raw.githubusercontent.com/WYC-2020/lede/f60db604f07165d5cd8f7a98be6890180c790513/target/linux/generic/pending-5.15/613-netfilter_optional_tcp_window_check.patch -O linux/generic/pending-5.15/613-netfilter_optional_tcp_window_check.patch
 	#wget -q https://raw.githubusercontent.com/WYC-2020/lede/01358c12ec1bfa6d5237eadecbd5ac404705cab3/target/linux/generic/backport-5.15/004-add-old-kernel-macros.patch -O linux/generic/backport-5.15/004-add-old-kernel-macros.patch
 	popd
-	
+
 	# Remove kmod-crypto-misc error
 	sed -i "/glue_helper.ko/d" $BUILDDIR/package/kernel/linux/modules/crypto.mk
 else
@@ -294,4 +294,116 @@ wget --show-progress -qO $HWOSDIR/bin/kopijahe "$rawgit/kopijahe/wifiid-openwrt/
 
 #-----------------------------------------------------------------------------
 #   End of @helmiau terminal scripts additionals menu
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+#   JCG Q20 pb-boot variant support
+#-----------------------------------------------------------------------------
+
+# Add SUPPORTED_DEVICES support for JCG Q20 pb-boot variant
+# This ensures sysupgrade compatibility for devices with board-name jcg,q20-pb-boot
+echo "helmilog: Adding SUPPORTED_DEVICES support for JCG Q20 pb-boot variant"
+
+# 1. Update device definition in mt7621.mk to add SUPPORTED_DEVICES
+MT7621_MAKEFILE="target/linux/ramips/image/mt7621.mk"
+
+if [ -f "$MT7621_MAKEFILE" ]; then
+    echo "helmilog: Updating $MT7621_MAKEFILE to add SUPPORTED_DEVICES for JCG Q20"
+
+    # Check if JCG Q20 device definition exists
+    if grep -q "define Device/jcg_q20" "$MT7621_MAKEFILE"; then
+        # Check if SUPPORTED_DEVICES already exists for jcg_q20
+        if grep -A 20 "define Device/jcg_q20" "$MT7621_MAKEFILE" | grep -q "SUPPORTED_DEVICES.*jcg,q20-pb-boot"; then
+            echo "helmilog: SUPPORTED_DEVICES already includes jcg,q20-pb-boot variant"
+        else
+            # Add SUPPORTED_DEVICES line if it doesn't exist, or update existing one
+            if grep -A 20 "define Device/jcg_q20" "$MT7621_MAKEFILE" | grep -q "SUPPORTED_DEVICES"; then
+                # Update existing SUPPORTED_DEVICES line
+                sed -i '/define Device\/jcg_q20/,/endef/ s/SUPPORTED_DEVICES.*:=.*/SUPPORTED_DEVICES := jcg,q20 jcg,q20-pb-boot/' "$MT7621_MAKEFILE"
+                echo "helmilog: Updated existing SUPPORTED_DEVICES line for JCG Q20"
+            else
+                # Add new SUPPORTED_DEVICES line before endef
+                sed -i '/define Device\/jcg_q20/,/endef/ s/endef/  SUPPORTED_DEVICES := jcg,q20 jcg,q20-pb-boot\nendef/' "$MT7621_MAKEFILE"
+                echo "helmilog: Added new SUPPORTED_DEVICES line for JCG Q20"
+            fi
+        fi
+    else
+        echo "helmilog: Warning - JCG Q20 device definition not found in $MT7621_MAKEFILE"
+        echo "helmilog: Device may be defined in a different file or with different name"
+    fi
+else
+    echo "helmilog: Warning - $MT7621_MAKEFILE not found"
+fi
+
+# 2. Update platform.sh to handle jcg,q20-pb-boot board name alias
+PLATFORM_SCRIPT="target/linux/ramips/mt7621/base-files/lib/upgrade/platform.sh"
+
+if [ -f "$PLATFORM_SCRIPT" ]; then
+    echo "helmilog: Updating $PLATFORM_SCRIPT to add board name alias"
+
+    # Check if jcg,q20-pb-boot alias already exists
+    if grep -q "jcg,q20-pb-boot" "$PLATFORM_SCRIPT"; then
+        echo "helmilog: Board name alias for jcg,q20-pb-boot already exists"
+    else
+        # Find existing jcg,q20 case and add pb-boot variant
+        if grep -q "jcg,q20)" "$PLATFORM_SCRIPT"; then
+            sed -i 's/jcg,q20)/jcg,q20|jcg,q20-pb-boot)/' "$PLATFORM_SCRIPT"
+            echo "helmilog: Added jcg,q20-pb-boot alias to existing case statement"
+        else
+            echo "helmilog: Warning - jcg,q20 case not found in platform.sh"
+        fi
+    fi
+else
+    echo "helmilog: Warning - $PLATFORM_SCRIPT not found"
+fi
+
+# 3. Update 02_network script to include jcg,q20-pb-boot variant
+NETWORK_SCRIPT="target/linux/ramips/mt7621/base-files/etc/board.d/02_network"
+
+if [ -f "$NETWORK_SCRIPT" ]; then
+    echo "helmilog: Updating $NETWORK_SCRIPT to add network configuration"
+
+    # Check if jcg,q20-pb-boot already exists in network config
+    if grep -q "jcg,q20-pb-boot" "$NETWORK_SCRIPT"; then
+        echo "helmilog: Network configuration for jcg,q20-pb-boot already exists"
+    else
+        # Find existing jcg,q20 case and add pb-boot variant
+        if grep -q "jcg,q20)" "$NETWORK_SCRIPT"; then
+            sed -i 's/jcg,q20)/jcg,q20|jcg,q20-pb-boot)/' "$NETWORK_SCRIPT"
+            echo "helmilog: Added jcg,q20-pb-boot to network configuration"
+        else
+            echo "helmilog: Warning - jcg,q20 network case not found in 02_network"
+        fi
+    fi
+else
+    echo "helmilog: Warning - $NETWORK_SCRIPT not found"
+fi
+
+# 4. Update 10_fix_wifi_mac script to handle jcg,q20-pb-boot variant
+WIFI_MAC_SCRIPT="target/linux/ramips/mt7621/base-files/etc/hotplug.d/ieee80211/10_fix_wifi_mac"
+
+if [ -f "$WIFI_MAC_SCRIPT" ]; then
+    echo "helmilog: Updating $WIFI_MAC_SCRIPT to add WiFi MAC configuration"
+
+    # Check if jcg,q20-pb-boot already exists in wifi mac config
+    if grep -q "jcg,q20-pb-boot" "$WIFI_MAC_SCRIPT"; then
+        echo "helmilog: WiFi MAC configuration for jcg,q20-pb-boot already exists"
+    else
+        # Find existing jcg,q20 case and add pb-boot variant
+        if grep -q "jcg,q20)" "$WIFI_MAC_SCRIPT"; then
+            sed -i 's/jcg,q20)/jcg,q20|jcg,q20-pb-boot)/' "$WIFI_MAC_SCRIPT"
+            echo "helmilog: Added jcg,q20-pb-boot to WiFi MAC configuration"
+        else
+            echo "helmilog: Warning - jcg,q20 WiFi MAC case not found in 10_fix_wifi_mac"
+        fi
+    fi
+else
+    echo "helmilog: Warning - $WIFI_MAC_SCRIPT not found"
+fi
+
+echo "helmilog: JCG Q20 pb-boot variant support completed"
+echo "helmilog: Added SUPPORTED_DEVICES metadata for sysupgrade compatibility"
+
+#-----------------------------------------------------------------------------
+#   End of JCG Q20 pb-boot variant support
 #-----------------------------------------------------------------------------
